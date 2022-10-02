@@ -183,6 +183,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     for params, index in zip(ParameterGrid(param_grid_gbrt), range(len(list(ParameterGrid(param_grid_gbrt))))):
         param_dict[index] = GradientBoostingRegressor(learning_rate=params['learning_rate'],
                                                       n_estimators=params['n_estimators'],
+                                                      min_samples_leaf=params['min_samples_leaf'],
                                                       max_depth=params['max_depth']).fit(X_train, Y_train.values.ravel()).score(X_val, Y_val)
 
     best_score = max(param_dict.values())
@@ -192,6 +193,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     # refit
     reg = GradientBoostingRegressor(learning_rate=best_param['learning_rate'],
                                     n_estimators=best_param['n_estimators'],
+                                    min_samples_leaf=best_param['min_samples_leaf'],
                                     max_depth=best_param['max_depth']).fit(X_train_val, Y_train_val.values.ravel())
     Y_pred = reg.predict(X_test)
     Y_pred_dict['GBRT'] = Y_pred.item(0)

@@ -16,17 +16,19 @@ num_component_grid = [3, 4, 5, 6, 7]
 GBtree_learning_rate = [0.2, 0.1]
 GBtree_max_depth = [4, 5]
 GBtree_n_estimators = [50, 100]
+GBtree_min_samples_leaf = [10]
 
 param_grid_gbrt = {'learning_rate': GBtree_learning_rate,
                   'max_depth': GBtree_max_depth,
-                  'n_estimators': GBtree_n_estimators}
+                  'n_estimators': GBtree_n_estimators,
+                   'min_samples_leaf': GBtree_min_samples_leaf}
 
 # aggregate market
 # 4. for Random Forest
 RF_n_estimators = [500]
 RF_max_depth = [4, 5]
 RF_max_features = [10, 20]
-RF_min_samples_leaf = [5]
+RF_min_samples_leaf = [10]
 
 param_grid_rf = {'n_estimators': RF_n_estimators,
                  'max_depth': RF_max_depth,

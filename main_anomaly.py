@@ -27,22 +27,13 @@ data = data.drop(['year', 'month', 'day'], axis=1)
 vwret = pd.read_feather('vwret_ls.feather')
 data = pd.merge(data, vwret, how='left', on=['date'])
 
-macro_list = ['bm', 'corpr', 'de', 'dfr', 'dfy', 'dp', 'dy', 'ep',
-       'infl', 'lRfree', 'ltr', 'lty', 'ntis', 'svar', 'tbl', 'tms',
-       'MSC', 'equis', 'pdnd', 'ripo', 'nipo', 'cefd', 'TI_P19',
-       'TI_P112', 'TI_P29', 'TI_P212', 'TI_P39', 'TI_P312', 'TI_M9',
-       'TI_M12', 'TI_V19', 'TI_V112', 'TI_V29', 'TI_V212', 'TI_V39',
-       'TI_V312', 'avghrs', 'uic', 'uemp', 'ocons', 'ocap', 'bpt', 'ipg']
-
-chars_list = []
+predictor_list = []
 
 for i in list(vwret.columns.values):
     if i.startswith('rank_'):
-        chars_list.append(i)
+        predictor_list.append(i)
     else:
         pass
-
-predictor_list = macro_list + chars_list
 
 result_Rx1M = pd.DataFrame()
 result_Rx3M = pd.DataFrame()
@@ -81,8 +72,8 @@ for year in range(1956, 2021):
 # store the result
 result = pd.concat([result_Rx1M, result_Rx3M, result_Rx12M, result_dg_r])
 result = result.reset_index(drop=True)
-result.to_feather('macro_anomaly_only.feather')
+result.to_feather('anomaly.feather')
 
 best_param = pd.concat([param_Rx1M, param_Rx3M, param_Rx12M, param_dg_r])
 best_param = best_param.reset_index(drop=True)
-best_param.to_feather('macro_anomaly_param.feather')
+best_param.to_feather('anomaly_param.feather')
