@@ -1,27 +1,16 @@
 import numpy as np
 import pandas as pd
-
 import datetime
 from dateutil.relativedelta import relativedelta
-
-from tuning import  *
-
-# from keras.wrappers.scikit_learn import KerasRegressor
 from sklearn.model_selection import PredefinedSplit,GridSearchCV
-from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, ParameterGrid
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.linear_model import LinearRegression, LassoCV, ElasticNetCV
+from sklearn.linear_model import *
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.metrics import mean_squared_error
-
-# from keras.models import Model
-# from keras.layers import Dense, Input
-
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
+from tuning import  *
 
 
 def get_data(this_month, data, train_span, valid_span, test_span, predictor_list, target):
@@ -31,7 +20,7 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     :param data: Dataframe that contains dependent and independent variables
     :param train_span: Number of months used to train the model
     :param valid_span: Number of months used to validate the model
-    :param test_span: Number of months will be predicted, normally it needs to be one to work in this framework
+    :param test_span: Numbers of months that dependent variable lagged
     :param predictor_list: Variables that are used to predict
     :param target: Dependent variable
     :return: X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val
@@ -42,18 +31,19 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     # test_end = this_month + relativedelta(day=31)  # Jan 31
 
     # split train, validation and test set
-    valid_start = this_month + relativedelta(months=-train_span) + relativedelta(day=31)
-    train_start = valid_start + relativedelta(months=-valid_span) + relativedelta(day=31)
-    test_end = this_month + relativedelta(months=test_span)
-    print("\n", 'train_start:', train_start.strftime("%Y-%m-%d"),
-          "\n", 'validation_start:', valid_start.strftime("%Y-%m-%d"),
-          "\n", 'this_month:', this_month.strftime("%Y-%m-%d"),
-          "\n", 'test_end:', test_end.strftime("%Y-%m-%d"))
+    test_start = this_month - relativedelta(months=test_span)
+    test_end = test_start + relativedelta(months=1)
+    valid_start = test_start - relativedelta(months=train_span)
+    train_start = valid_start - relativedelta(months=valid_span)
+    print("\n", 'train_span:', train_start.strftime("%Y-%m-%d"), '-', (valid_start-relativedelta(days=1)).strftime("%Y-%m-%d"),
+          "\n", 'validation_span:', valid_start.strftime("%Y-%m-%d"), '-', (test_start-relativedelta(days=1)).strftime("%Y-%m-%d"),
+          "\n", 'test_span:', test_start.strftime("%Y-%m-%d"), '-', (test_end-relativedelta(days=1)).strftime("%Y-%m-%d")
+          )
 
     # split train, validation and test set
     data_train = data[(data['date'] >= train_start) & (data['date'] < valid_start)]
-    data_valid = data[(data['date'] >= valid_start) & (data['date'] < this_month)]
-    data_test = data[(data['date'] >= this_month) & (data['date'] < test_end)]
+    data_valid = data[(data['date'] >= valid_start) & (data['date'] < test_start)]
+    data_test = data[(data['date'] >= test_start) & (data['date'] < test_end)]
 
     # split X and Y
     Y_train = data_train[['%s' % target]]
@@ -66,7 +56,7 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     X_train_val = pd.concat([X_train, X_val], axis=0)
 
     # clean X, if some variables have missing value in train and validation set, then drop them from this run
-    nan_var = list(X_train.columns[X_train.isnull().any()]) + list(X_val.columns[X_val.isnull().any()])
+    nan_var = list(X_train.columns[X_train.isnull().any()]) + list(X_val.columns[X_val.isnull().any()]) + list(X_test.columns[X_test.isnull().any()])
     X_train = X_train.drop(nan_var, axis=1)
     X_val = X_val.drop(nan_var, axis=1)
     X_test = X_test.drop(nan_var, axis=1)
@@ -164,7 +154,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     Y_pred = reg.predict(X_test)
     Y_pred_dict['GBRT'] = Y_pred.item(0)
 
-    # 11. Random Forrest regression
+    # 8. Random Forrest regression
     # Using grid search to CV
     # define estimator
     estimator = RandomForestRegressor()

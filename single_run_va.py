@@ -20,7 +20,7 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     :param data: Dataframe that contains dependent and independent variables
     :param train_span: Number of months used to train the model
     :param valid_span: Number of months used to validate the model
-    :param test_span: Number of months will be predicted, normally it needs to be one to work in this framework
+    :param test_span: Numbers of months that dependent variable lagged
     :param predictor_list: Variables that are used to predict
     :param target: Dependent variable
     :return: X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val
@@ -79,12 +79,13 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     :param target: Dependent variable
     :return: Dataframe with four columns: predicted method, predicted value, date and name of dependent variable
     '''
-    print("=" * 20, this_month, target, "=" * 20)
+    print("=" * 20, this_month, "=" * 20)
 
     # get data
-    X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span, valid_span, test_span, predictor_list, target)
+    X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span, valid_span, test_span, predictor_list,  target)
     # allocate space
     Y_pred_dict = {}
+    best_param_dict = {}
 
     ####################################################################
     # get result from all other methods
@@ -124,6 +125,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     # refit
     Y_pred = reg.predict(X_test)
     Y_pred_dict['Lasso'] = Y_pred.item(0)
+    best_param_dict['Lasso'] = best_param
 
     # 4. Ridge
     param_dict = {}
@@ -136,6 +138,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
 
     Y_pred = reg.predict(X_test)
     Y_pred_dict['Ridge'] = Y_pred.item(0)
+    best_param_dict['Ridge'] = best_param
 
     # 5. PCA
     param_dict = {}
@@ -157,6 +160,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     reg = LinearRegression().fit(X_train_reduced, Y_train_val)
     Y_pred = reg.predict(X_test_reduced)
     Y_pred_dict['PCA'] = Y_pred.item(0)
+    best_param_dict['PCA'] = best_param
 
     # 6. PLS
     param_dict = {}
@@ -172,6 +176,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     reg = pls.fit(X_train_val, Y_train_val)
     Y_pred = reg.predict(X_test)
     Y_pred_dict['PLS'] = Y_pred.item(0)
+    best_param_dict['PLS'] = best_param
 
     # 7. Gradient boost tree regression
     param_dict = {}
@@ -190,6 +195,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
                                     max_depth=best_param['max_depth']).fit(X_train_val, Y_train_val.values.ravel())
     Y_pred = reg.predict(X_test)
     Y_pred_dict['GBRT'] = Y_pred.item(0)
+    GBRT_param_dict = best_param
 
     # 8. Random Forrest regression
     param_dict = {}
@@ -211,6 +217,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
 
     Y_pred = reg.predict(X_test)
     Y_pred_dict['RF'] = Y_pred.item(0)
+    RF_param_dict = best_param
 
     # Convert the final result to dataframe
     result = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
@@ -219,5 +226,23 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     result = result.reset_index()
     result.columns = ['method', 'y_pred', 'date', 'target']
 
-    return result
+    # Store the best tuning parameters
+    best_param_df = pd.DataFrame.from_dict(best_param_dict, orient='index').reset_index()
+    RF_param_df = pd.DataFrame.from_dict(RF_param_dict, orient='index').reset_index()
+    GBRT_param_df = pd.DataFrame.from_dict(GBRT_param_dict, orient='index').reset_index()
+
+    RF_param_df['method'] = 'RF'
+    GBRT_param_df['method'] = 'GBRT'
+    RF_param_df = RF_param_df.rename(columns={'index': 'param', 0:'value'})
+    GBRT_param_df = GBRT_param_df.rename(columns={'index': 'param', 0:'value'})
+
+    best_param_df = best_param_df.rename(columns={'index': 'method', 0:'value'})
+    best_param_df['param'] = np.nan
+
+    best_param_df = pd.concat([best_param_df, RF_param_df, GBRT_param_df])
+    best_param_df['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
+    best_param_df['target'] = target
+    best_param_df = best_param_df.reset_index(drop=True)
+
+    return result, best_param_df
 
