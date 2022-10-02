@@ -54,7 +54,7 @@ param_Rx3M = pd.DataFrame()
 param_Rx12M = pd.DataFrame()
 param_dg_r = pd.DataFrame()
 
-for year in range(1956, 2021):
+for year in range(1958, 2021):
        for month in range(1, 13):
               this_month = str(year) + '-' + str(month) + '-01'
               # Rx1M

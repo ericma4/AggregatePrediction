@@ -33,8 +33,8 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     # split train, validation and test set
     test_start = this_month - relativedelta(months=test_span)
     test_end = test_start + relativedelta(months=1)
-    valid_start = test_start - relativedelta(months=train_span)
-    train_start = valid_start - relativedelta(months=valid_span)
+    valid_start = test_start - relativedelta(months=valid_span)
+    train_start = valid_start - relativedelta(months=train_span)
     print("\n", 'train_span:', train_start.strftime("%Y-%m-%d"), '-', (valid_start-relativedelta(days=1)).strftime("%Y-%m-%d"),
           "\n", 'validation_span:', valid_start.strftime("%Y-%m-%d"), '-', (test_start-relativedelta(days=1)).strftime("%Y-%m-%d"),
           "\n", 'test_span:', test_start.strftime("%Y-%m-%d"), '-', (test_end-relativedelta(days=1)).strftime("%Y-%m-%d")
@@ -82,7 +82,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     print("=" * 20, this_month, "=" * 20)
 
     # get data
-    X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span, valid_span, test_span, predictor_list,  target)
+    X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span, valid_span, test_span, predictor_list, target)
     # allocate space
     Y_pred_dict = {}
     best_param_dict = {}
@@ -202,10 +202,13 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     # 8. Random Forrest regression
     param_dict = {}
     for params, index in zip(ParameterGrid(param_grid_rf), range(len(list(ParameterGrid(param_grid_rf))))):
-        param_dict[index] = RandomForestRegressor(max_depth=params['max_depth'],
-                                                  max_features=params['max_features'],
-                                                  min_samples_leaf=params['min_samples_leaf'],
-                                                  n_estimators=params['n_estimators']).fit(X_train, Y_train.values.ravel()).score(X_val, Y_val)
+        if params['max_features'] > len(X_train.columns.values):
+            pass
+        else:
+            param_dict[index] = RandomForestRegressor(max_depth=params['max_depth'],
+                                                      max_features=params['max_features'],
+                                                      min_samples_leaf=params['min_samples_leaf'],
+                                                      n_estimators=params['n_estimators']).fit(X_train, Y_train.values.ravel()).score(X_val, Y_val)
 
     best_score = max(param_dict.values())
     best_param_index = list(param_dict.keys())[list(param_dict.values()).index(best_score)]
