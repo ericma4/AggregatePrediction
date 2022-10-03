@@ -11,11 +11,17 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from tuning import  *
+from scipy.stats.mstats import winsorize
+pd.options.mode.chained_assignment = None  # default='warn'
+from warnings import simplefilter
+from sklearn.exceptions import ConvergenceWarning
+import warnings
+simplefilter("ignore", category=ConvergenceWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 
-def get_data(this_month, data, train_span, valid_span, test_span, predictor_list, target):
+def get_data(this_month, data, train_span, valid_span, test_span, predictor_list, target, win=False):
     '''
-
     :param this_month: Prediction start date, should be str and the first day of month like '2022-01-01'
     :param data: Dataframe that contains dependent and independent variables
     :param train_span: Number of months used to train the model
@@ -23,6 +29,7 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     :param test_span: Numbers of months that dependent variable lagged
     :param predictor_list: Variables that are used to predict
     :param target: Dependent variable
+    :param win: If True then winsorize the dependent variable
     :return: X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val
     '''
 
@@ -41,9 +48,17 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
           )
 
     # split train, validation and test set
-    data_train = data[(data['date'] >= train_start) & (data['date'] < valid_start)]
-    data_valid = data[(data['date'] >= valid_start) & (data['date'] < test_start)]
-    data_test = data[(data['date'] >= test_start) & (data['date'] < test_end)]
+    if win is True:
+        # winsorize the target at 5% and 95% level
+        data_train_val = data[(data['date'] >= train_start) & (data['date'] < test_start)]
+        data_train_val['%s' % target] = winsorize(data_train_val['%s' % target], limits=[0.05, 0.05])
+        data_train = data_train_val[(data_train_val['date'] >= train_start) & (data_train_val['date'] < valid_start)]
+        data_valid = data_train_val[(data_train_val['date'] >= valid_start) & (data_train_val['date'] < test_start)]
+        data_test = data[(data['date'] >= test_start) & (data['date'] < test_end)]
+    else:
+        data_train = data[(data['date'] >= train_start) & (data['date'] < valid_start)]
+        data_valid = data[(data['date'] >= valid_start) & (data['date'] < test_start)]
+        data_test = data[(data['date'] >= test_start) & (data['date'] < test_end)]
 
     # split X and Y
     Y_train = data_train[['%s' % target]]
@@ -67,7 +82,7 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     return X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val
 
 
-def single_run(this_month, data, train_span, valid_span, test_span, predictor_list, target):
+def single_run(this_month, data, train_span, valid_span, test_span, predictor_list, target, win=False):
     '''
 
     :param this_month: Prediction start date, should be str and the first day of month like '2022-01-01'
@@ -77,12 +92,13 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     :param test_span: Number of months will be predicted, normally it needs to be one to work in this framework
     :param predictor_list: Variables that are used to predict
     :param target: Dependent variable
+    :param win: If True then winsorize the dependent variable
     :return: Dataframe with four columns: predicted method, predicted value, date and name of dependent variable
     '''
     print("=" * 20, this_month, "=" * 20)
 
     # get data
-    X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span, valid_span, test_span, predictor_list, target)
+    X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span, valid_span, test_span, predictor_list, target, win)
     # allocate space
     Y_pred_dict = {}
     best_param_dict = {}
@@ -230,6 +246,10 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     result['target'] = target
     result = result.reset_index()
     result.columns = ['method', 'y_pred', 'date', 'target']
+    if len(Y_test['%s' % target].values) == 1:  # cannot add real return of individual firms
+        result['Y'] = float(Y_test['%s' % target].values)
+    else:
+        pass
 
     # Store the best tuning parameters
     best_param_df = pd.DataFrame.from_dict(best_param_dict, orient='index').reset_index()

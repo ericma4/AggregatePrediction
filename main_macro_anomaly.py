@@ -4,11 +4,6 @@ from pandas.tseries.offsets import *
 import datetime
 from dateutil.relativedelta import relativedelta
 from single_run_va import *
-from warnings import simplefilter
-from sklearn.exceptions import ConvergenceWarning
-import warnings
-simplefilter("ignore", category=ConvergenceWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
 
 data = pd.read_excel('Aggregate.xlsx')
 data = data.rename(columns={'yyyy': 'year', 'mm': 'month'})
@@ -59,22 +54,22 @@ for year in range(1958, 2021):
               this_month = str(year) + '-' + str(month) + '-01'
               # Rx1M
               Y_table, best_param = single_run(this_month=this_month, data=data, train_span=240, valid_span=120, test_span=1,
-                                   predictor_list=predictor_list, target='Rx1M')
+                                   predictor_list=predictor_list, target='Rx1M', win=True)
               result_Rx1M = pd.concat([result_Rx1M, Y_table])
               param_Rx1M = pd.concat([param_Rx1M, best_param])
               # Rx3M
               Y_table, best_param = single_run(this_month=this_month, data=data, train_span=240, valid_span=120, test_span=3,
-                                   predictor_list=predictor_list, target='Rx3M')
+                                   predictor_list=predictor_list, target='Rx3M', win=True)
               result_Rx3M = pd.concat([result_Rx3M, Y_table])
               param_Rx3M = pd.concat([param_Rx3M, best_param])
               # Rx12M
               Y_table, best_param = single_run(this_month=this_month, data=data, train_span=240, valid_span=120, test_span=12,
-                                   predictor_list=predictor_list, target='Rx12M')
+                                   predictor_list=predictor_list, target='Rx12M', win=True)
               result_Rx12M = pd.concat([result_Rx12M, Y_table])
               param_Rx12M = pd.concat([param_Rx12M, best_param])
               # dg_r
               Y_table, best_param = single_run(this_month=this_month, data=data, train_span=240, valid_span=120, test_span=12,
-                                   predictor_list=predictor_list, target='dg_r')
+                                   predictor_list=predictor_list, target='dg_r', win=True)
               result_dg_r = pd.concat([result_dg_r, Y_table])
               param_dg_r = pd.concat([param_dg_r, best_param])
 
