@@ -88,7 +88,7 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     return X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val
 
 
-def single_run(this_month, data, train_span, valid_span, test_span, predictor_list, target, win=False):
+def model_train(this_month, data, train_span, valid_span, test_span, predictor_list, target, win=False):
     '''
 
     :param this_month: Prediction start date, should be str and the first day of month like '2022-01-01'
@@ -101,40 +101,43 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     :param win: If True then winsorize the dependent variable
     :return: Dataframe with four columns: predicted method, predicted value, date and name of dependent variable
     '''
-    print("=" * 20, this_month, "=" * 20)
+    print("=" * 20, this_month, 'training', "=" * 20)
 
     # get data
     X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span, valid_span, test_span, predictor_list, target, win)
     # allocate space
     Y_pred_dict = {}
     best_param_dict = {}
+    model_dict = {}
 
     ####################################################################
     # get result from all other methods
 
     # 1. individual regression
-    for j in X_train_val.columns.values:
+    for j in predictor_list:
         reg = LinearRegression().fit(X_train_val[[j]], Y_train_val)
-        Y_pred = reg.predict(X_test[[j]])
-        Y_pred_dict['%s' % j] = Y_pred.item(0)
+        model_dict['%s' % j] = reg
+        # Y_pred = reg.predict(X_test[[j]])
+        # Y_pred_dict['%s' % j] = Y_pred.item(0)
 
     #### combination method
-    df = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
-    df.index = X_train_val.columns.values
+    # df = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
+    # df.index = X_train_val.columns.values
     # print(df)
 
     # mean combinations
-    Y_pred = df.mean()
-    Y_pred_dict['Mean Combination'] = Y_pred.values.item(0)
+    # Y_pred = df.mean()
+    # Y_pred_dict['Mean Combination'] = Y_pred.values.item(0)
 
     # median combinations
-    Y_pred = df.median()
-    Y_pred_dict['Median Combination'] = Y_pred.values.item(0)
+    # Y_pred = df.median()
+    # Y_pred_dict['Median Combination'] = Y_pred.values.item(0)
 
     # 2. ols all
     reg = LinearRegression().fit(X_train_val, Y_train_val)
-    Y_pred = reg.predict(X_test)
-    Y_pred_dict['OLS'] = Y_pred.item(0)
+    model_dict['ols'] = reg
+    # Y_pred = reg.predict(X_test)
+    # Y_pred_dict['OLS'] = Y_pred.item(0)
 
     # 3. Lasso
     param_dict = {}
@@ -145,9 +148,10 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     best_param = list(param_dict.keys())[list(param_dict.values()).index(best_score)]
     reg = Lasso(alpha=best_param).fit(X_train_val, Y_train_val.values.ravel())
     # refit
-    Y_pred = reg.predict(X_test)
-    Y_pred_dict['Lasso'] = Y_pred.item(0)
+    # Y_pred = reg.predict(X_test)
+    # Y_pred_dict['Lasso'] = Y_pred.item(0)
     best_param_dict['Lasso'] = best_param
+    model_dict['Lasso'] = reg
 
     # 4. Ridge
     param_dict = {}
@@ -158,9 +162,10 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     best_param = list(param_dict.keys())[list(param_dict.values()).index(best_score)]
     reg = Ridge(alpha=best_param).fit(X_train_val, Y_train_val.values.ravel())
 
-    Y_pred = reg.predict(X_test)
-    Y_pred_dict['Ridge'] = Y_pred.item(0)
+    # Y_pred = reg.predict(X_test)
+    # Y_pred_dict['Ridge'] = Y_pred.item(0)
     best_param_dict['Ridge'] = best_param
+    model_dict['Ridge'] = reg
 
     # 5. PCA
     param_dict = {}
@@ -180,9 +185,11 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     X_test_reduced = pca.transform(X_test)
     # ols
     reg = LinearRegression().fit(X_train_reduced, Y_train_val)
-    Y_pred = reg.predict(X_test_reduced)
-    Y_pred_dict['PCA'] = Y_pred.item(0)
+    # Y_pred = reg.predict(X_test_reduced)
+    # Y_pred_dict['PCA'] = Y_pred.item(0)
     best_param_dict['PCA'] = best_param
+    model_dict['PCA'] = pca
+    model_dict['PCA_reg'] = reg
 
     # 6. PLS
     param_dict = {}
@@ -196,9 +203,10 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     # refit
     pls = PLSRegression(n_components=best_param)
     reg = pls.fit(X_train_val, Y_train_val)
-    Y_pred = reg.predict(X_test)
-    Y_pred_dict['PLS'] = Y_pred.item(0)
+    # Y_pred = reg.predict(X_test)
+    # Y_pred_dict['PLS'] = Y_pred.item(0)
     best_param_dict['PLS'] = best_param
+    model_dict['PLS'] = reg
 
     # 7. Gradient boost tree regression
     param_dict = {}
@@ -217,9 +225,10 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
                                     n_estimators=best_param['n_estimators'],
                                     min_samples_leaf=best_param['min_samples_leaf'],
                                     max_depth=best_param['max_depth']).fit(X_train_val, Y_train_val.values.ravel())
-    Y_pred = reg.predict(X_test)
-    Y_pred_dict['GBRT'] = Y_pred.item(0)
+    # Y_pred = reg.predict(X_test)
+    # Y_pred_dict['GBRT'] = Y_pred.item(0)
     GBRT_param_dict = best_param
+    model_dict['GBRT'] = reg
 
     # 8. Random Forrest regression
     param_dict = {}
@@ -242,20 +251,21 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
                                 min_samples_leaf=best_param['min_samples_leaf'],
                                 n_estimators=best_param['n_estimators']).fit(X_train_val, Y_train_val.values.ravel())
 
-    Y_pred = reg.predict(X_test)
-    Y_pred_dict['RF'] = Y_pred.item(0)
+    # Y_pred = reg.predict(X_test)
+    # Y_pred_dict['RF'] = Y_pred.item(0)
     RF_param_dict = best_param
+    model_dict['RF'] = reg
 
     # Convert the final result to dataframe
-    result = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
-    result['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
-    result['target'] = target
-    result = result.reset_index()
-    result.columns = ['method', 'y_pred', 'date', 'target']
-    if len(Y_test['%s' % target].values) == 1:  # cannot add real return of individual firms
-        result['Y'] = float(Y_test['%s' % target].values)
-    else:
-        pass
+    # result = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
+    # result['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
+    # result['target'] = target
+    # result = result.reset_index()
+    # result.columns = ['method', 'y_pred', 'date', 'target']
+    # if len(Y_test['%s' % target].values) == 1:  # cannot add real return of individual firms
+    #     result['Y'] = float(Y_test['%s' % target].values)
+    # else:
+    #     pass
 
     # Store the best tuning parameters
     best_param_df = pd.DataFrame.from_dict(best_param_dict, orient='index').reset_index()
@@ -275,5 +285,104 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     best_param_df['target'] = target
     best_param_df = best_param_df.reset_index(drop=True)
 
-    return result, best_param_df
+    return model_dict, best_param_df
+
+
+def single_run(model_dict, this_month, data, train_span, valid_span, test_span, predictor_list, target, win=False):
+    '''
+
+    :param this_month: Prediction start date, should be str and the first day of month like '2022-01-01'
+    :param data: Dataframe that contains dependent and independent variables
+    :param train_span: Number of months used to train the model
+    :param valid_span: Number of months used to validate the model
+    :param test_span: Number of months will be predicted, normally it needs to be one to work in this framework
+    :param predictor_list: Variables that are used to predict
+    :param target: Dependent variable
+    :param win: If True then winsorize the dependent variable
+    :return: Dataframe with four columns: predicted method, predicted value, date and name of dependent variable
+    '''
+    print("=" * 20, this_month, 'predicting', "=" * 20)
+
+    # get data
+    X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span,
+                                                                                        valid_span, test_span,
+                                                                                        predictor_list, target, win)
+    # allocate space
+    Y_pred_dict = {}
+
+    ####################################################################
+    # get result from all other methods
+
+    # 1. individual regression
+    for j in predictor_list:
+        reg = model_dict['%s' % j]
+        Y_pred = reg.predict(X_test[[j]])
+        Y_pred_dict['%s' % j] = Y_pred.item(0)
+
+    #### combination method
+    df = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
+    df.index = X_train_val.columns.values
+    # print(df)
+
+    # mean combinations
+    Y_pred = df.mean()
+    Y_pred_dict['Mean Combination'] = Y_pred.values.item(0)
+
+    # median combinations
+    Y_pred = df.median()
+    Y_pred_dict['Median Combination'] = Y_pred.values.item(0)
+
+    # 2. ols all
+    reg = model_dict['ols']
+    Y_pred = reg.predict(X_test)
+    Y_pred_dict['OLS'] = Y_pred.item(0)
+
+    # 3. Lasso
+    reg = model_dict['Lasso']
+    # refit
+    Y_pred = reg.predict(X_test)
+    Y_pred_dict['Lasso'] = Y_pred.item(0)
+
+    # 4. Ridge
+    reg = model_dict['Ridge']
+    # refit
+    Y_pred = reg.predict(X_test)
+    Y_pred_dict['Ridge'] = Y_pred.item(0)
+
+    # 5. PCA
+    # refit
+    X_test_reduced = model_dict['PCA'].transform(X_test)
+    # ols
+    reg = model_dict['PCA_reg']
+    Y_pred = reg.predict(X_test_reduced)
+    Y_pred_dict['PCA'] = Y_pred.item(0)
+
+    # 6. PLS
+    # refit
+    reg = model_dict['PLS']
+    Y_pred = reg.predict(X_test)
+    Y_pred_dict['PLS'] = Y_pred.item(0)
+
+    # 7. Gradient boost tree regression
+    reg = model_dict['GBRT']
+    Y_pred = reg.predict(X_test)
+    Y_pred_dict['GBRT'] = Y_pred.item(0)
+
+    # 8. Random Forrest regression
+    reg = model_dict['RF']
+    Y_pred = reg.predict(X_test)
+    Y_pred_dict['RF'] = Y_pred.item(0)
+
+    # Convert the final result to dataframe
+    result = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
+    result['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
+    result['target'] = target
+    result = result.reset_index()
+    result.columns = ['method', 'y_pred', 'date', 'target']
+    if len(Y_test['%s' % target].values) == 1:  # cannot add real return of individual firms
+        result['Y'] = float(Y_test['%s' % target].values)
+    else:
+        pass
+
+    return result
 
