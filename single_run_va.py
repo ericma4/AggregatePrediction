@@ -49,12 +49,13 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
 
     # split train, validation and test set
     if win is True:
-        # winsorize the target at 5% and 95% level
+        # winsorize the target at 5% and 95% level. in this version, we winsorize the train and train_val sample separately.
         data_train_val = data[(data['date'] >= train_start) & (data['date'] < test_start)]
-        data_train_val['%s' % target] = winsorize(data_train_val['%s' % target], limits=[0.05, 0.05])
         data_train = data_train_val[(data_train_val['date'] >= train_start) & (data_train_val['date'] < valid_start)]
         data_valid = data_train_val[(data_train_val['date'] >= valid_start) & (data_train_val['date'] < test_start)]
         data_test = data[(data['date'] >= test_start) & (data['date'] < test_end)]
+        data_valid['%s' % target] = winsorize(data_valid['%s' % target], limits=[0.05, 0.05])
+        data_train_val['%s' % target] = winsorize(data_train_val['%s' % target], limits=[0.05, 0.05])
     else:
         data_train = data[(data['date'] >= train_start) & (data['date'] < valid_start)]
         data_valid = data[(data['date'] >= valid_start) & (data['date'] < test_start)]
@@ -67,8 +68,11 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     X_val = data_valid[predictor_list]
     Y_test = data_test[['%s' % target]]
     X_test = data_test[predictor_list]
-    Y_train_val = pd.concat([Y_train, Y_val], axis=0)
-    X_train_val = pd.concat([X_train, X_val], axis=0)
+    # take the winsorized training and validation sample
+    Y_train_val = data_train_val[['%s' % target]]
+    X_train_val = data_train_val[predictor_list]
+    # Y_train_val = pd.concat([Y_train, Y_val], axis=0)
+    # X_train_val = pd.concat([X_train, X_val], axis=0)
 
     # clean X, if some variables have missing value in train and validation set, then drop them from this run
     nan_var = list(X_train.columns[X_train.isnull().any()]) + list(X_val.columns[X_val.isnull().any()]) + list(X_test.columns[X_test.isnull().any()])
