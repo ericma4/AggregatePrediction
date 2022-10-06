@@ -66,7 +66,7 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     X_train = data_train[predictor_list]
     Y_val = data_valid[['%s' % target]]
     X_val = data_valid[predictor_list]
-    Y_test = data_test[['%s' % target]]
+    Y_test = data_test[['%s' % target, 'permno']]
     X_test = data_test[predictor_list]
     # take the winsorized training and validation sample
     if win is True:
@@ -106,7 +106,7 @@ def model_train(this_month, data, train_span, valid_span, test_span, predictor_l
     # get data
     X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span, valid_span, test_span, predictor_list, target, win)
     # allocate space
-    Y_pred_dict = {}
+    # Y_pred_dict = {}
     best_param_dict = {}
     model_dict = {}
 
@@ -307,8 +307,12 @@ def single_run(model_dict, this_month, data, train_span, valid_span, test_span, 
     X_train, X_val, X_test, Y_train, Y_val, Y_test, Y_train_val, X_train_val = get_data(this_month, data, train_span,
                                                                                         valid_span, test_span,
                                                                                         predictor_list, target, win)
+    # reset X_test, Y_test index
+    X_test = X_test.reset_index(drop=True)
+    Y_test = Y_test.reset_index(drop=True)
+
     # allocate space
-    Y_pred_dict = {}
+    Y_pred_df = pd.DataFrame()
 
     ####################################################################
     # get result from all other methods
@@ -317,37 +321,32 @@ def single_run(model_dict, this_month, data, train_span, valid_span, test_span, 
     for j in predictor_list:
         reg = model_dict['%s' % j]
         Y_pred = reg.predict(X_test[[j]])
-        Y_pred_dict['%s' % j] = Y_pred.item(0)
+        Y_pred_df['%s' % j] = Y_pred.ravel()
 
     #### combination method
-    df = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
-    df.index = X_train_val.columns.values
-    # print(df)
 
     # mean combinations
-    Y_pred = df.mean()
-    Y_pred_dict['Mean Combination'] = Y_pred.values.item(0)
+    Y_pred_df['Mean Combination'] = Y_pred_df.mean(axis=1)
 
     # median combinations
-    Y_pred = df.median()
-    Y_pred_dict['Median Combination'] = Y_pred.values.item(0)
+    Y_pred_df['Median Combination'] = Y_pred_df.drop('Mean Combination', axis=1).median(axis=1)
 
     # 2. ols all
     reg = model_dict['ols']
     Y_pred = reg.predict(X_test)
-    Y_pred_dict['OLS'] = Y_pred.item(0)
+    Y_pred_df['OLS'] = Y_pred
 
     # 3. Lasso
     reg = model_dict['Lasso']
     # refit
     Y_pred = reg.predict(X_test)
-    Y_pred_dict['Lasso'] = Y_pred.item(0)
+    Y_pred_df['Lasso'] = Y_pred
 
     # 4. Ridge
     reg = model_dict['Ridge']
     # refit
     Y_pred = reg.predict(X_test)
-    Y_pred_dict['Ridge'] = Y_pred.item(0)
+    Y_pred_df['Ridge'] = Y_pred
 
     # 5. PCA
     # refit
@@ -355,34 +354,29 @@ def single_run(model_dict, this_month, data, train_span, valid_span, test_span, 
     # ols
     reg = model_dict['PCA_reg']
     Y_pred = reg.predict(X_test_reduced)
-    Y_pred_dict['PCA'] = Y_pred.item(0)
+    Y_pred_df['PCA'] = Y_pred
 
     # 6. PLS
     # refit
     reg = model_dict['PLS']
     Y_pred = reg.predict(X_test)
-    Y_pred_dict['PLS'] = Y_pred.item(0)
+    Y_pred_df['PLS'] = Y_pred
 
     # 7. Gradient boost tree regression
     reg = model_dict['GBRT']
     Y_pred = reg.predict(X_test)
-    Y_pred_dict['GBRT'] = Y_pred.item(0)
+    Y_pred_df['GBRT'] = Y_pred
 
     # 8. Random Forrest regression
     reg = model_dict['RF']
     Y_pred = reg.predict(X_test)
-    Y_pred_dict['RF'] = Y_pred.item(0)
+    Y_pred_df['RF'] = Y_pred
 
     # Convert the final result to dataframe
-    result = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
+    Y_pred_df[['permno', 'y']] = Y_test[['permno', '%s' % target]].reset_index(drop=True)
+    result = Y_pred_df.copy()
     result['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
     result['target'] = target
-    result = result.reset_index()
-    result.columns = ['method', 'y_pred', 'date', 'target']
-    if len(Y_test['%s' % target].values) == 1:  # cannot add real return of individual firms
-        result['Y'] = float(Y_test['%s' % target].values)
-    else:
-        pass
 
     return result
 
