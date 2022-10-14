@@ -41,3 +41,12 @@ param_grid_rf = {'n_estimators': RF_n_estimators,
 # RF_max_depth = [5, 7]
 # RF_max_features = [10, 20]
 # RF_min_samples_leaf = [5]
+
+# 5. Neural Network
+NN_alpha = [0.01, 0.001]
+NN_learning_rate = [0.01, 0.001]
+NN_max_iter = [100,200]
+
+param_grid_nn = {'NN_alpha': NN_alpha,
+                 'NN_learning_rate': NN_learning_rate,
+                 'NN_max_iter': NN_max_iter}

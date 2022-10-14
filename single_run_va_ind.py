@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import datetime
+
+import torch
 from dateutil.relativedelta import relativedelta
 from sklearn.model_selection import PredefinedSplit,GridSearchCV
 from sklearn.decomposition import PCA
@@ -10,7 +12,8 @@ from sklearn.linear_model import *
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from tuning import  *
+from tuning import *
+from my_nn import *
 from scipy.stats.mstats import winsorize
 pd.options.mode.chained_assignment = None  # default='warn'
 from warnings import simplefilter
@@ -256,6 +259,108 @@ def model_train(this_month, data, train_span, valid_span, test_span, predictor_l
     RF_param_dict = best_param
     model_dict['RF'] = reg
 
+    # 9. Neural Network (2 layer)
+    n_feature = len(X_train.columns)
+    # transform data to tensor
+    X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32)
+    Y_train_tensor = torch.tensor(Y_train.values, dtype=torch.float32)
+    X_train_val_tensor = torch.tensor(X_train_val.values, dtype=torch.float32)
+    Y_train_val_tensor = torch.tensor(Y_train_val.values, dtype=torch.float32)
+
+    # find the best parameters
+    param_dict = {}
+    for params, index in zip(ParameterGrid(param_grid_nn), range(len(list(ParameterGrid(param_grid_nn))))):
+        net2 = Net2(n_feature=n_feature, n_hidden1=16, n_hidden2=4, n_output=1).to(device)  # define the network
+
+        optimizer = torch.optim.SGD(net2.parameters(), lr=params['NN_learning_rate'], weight_decay=params['NN_alpha'])
+        loss_func = torch.nn.MSELoss()  # this is for regression mean squared loss
+
+        for epoch in range(params['NN_max_iter']):
+            prediction = net2(X_train_tensor)  # input x and predict based on x
+
+            loss = loss_func(prediction, Y_train_tensor)  # must be (1. nn output, 2. target)
+
+            optimizer.zero_grad()  # clear gradients for next train
+            loss.backward()  # backpropagation, compute gradients
+            optimizer.step()  # apply gradients
+
+        # calculate in-sample R2
+        y_pred_temp = net2(X_train_tensor)
+        param_dict[index] = 1 - (((Y_train_tensor - y_pred_temp) ** 2).sum() / ((Y_train_tensor - y_pred_temp.mean()) ** 2).sum()).item()
+
+    best_score = max(param_dict.values())
+    best_param_index = list(param_dict.keys())[list(param_dict.values()).index(best_score)]
+    best_param = list(ParameterGrid(param_grid_nn))[best_param_index]
+
+    # refit
+    net2 = Net2(n_feature=n_feature, n_hidden1=16, n_hidden2=4, n_output=1).to(device)  # define the network
+
+    optimizer = torch.optim.SGD(net2.parameters(), lr=best_param['NN_learning_rate'], weight_decay=best_param['NN_alpha'])
+    loss_func = torch.nn.MSELoss()  # this is for regression mean squared loss
+
+    for epoch in range(best_param['NN_max_iter']):
+        prediction = net2(X_train_val_tensor)  # input x and predict based on x
+
+        loss = loss_func(prediction, Y_train_val_tensor)  # must be (1. nn output, 2. target)
+
+        optimizer.zero_grad()  # clear gradients for next train
+        loss.backward()  # backpropagation, compute gradients
+        optimizer.step()  # apply gradients
+
+    NN2_param_dict = best_param
+    model_dict['NN2'] = net2
+
+    # 10. Neural Network (4 layer)
+    n_feature = len(X_train.columns)
+    # transform data to tensor
+    X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32)
+    Y_train_tensor = torch.tensor(Y_train.values, dtype=torch.float32)
+    X_train_val_tensor = torch.tensor(X_train_val.values, dtype=torch.float32)
+    Y_train_val_tensor = torch.tensor(Y_train_val.values, dtype=torch.float32)
+
+    # find the best parameters
+    param_dict = {}
+    for params, index in zip(ParameterGrid(param_grid_nn), range(len(list(ParameterGrid(param_grid_nn))))):
+        net4 = Net4(n_feature=n_feature, n_hidden1=32, n_hidden2=16, n_hidden3=8, n_hidden4=4, n_output=1).to(device)  # define the network
+
+        optimizer = torch.optim.SGD(net4.parameters(), lr=params['NN_learning_rate'], weight_decay=params['NN_alpha'])
+        loss_func = torch.nn.MSELoss()  # this is for regression mean squared loss
+
+        for epoch in range(params['NN_max_iter']):
+            prediction = net4(X_train_tensor)  # input x and predict based on x
+
+            loss = loss_func(prediction, Y_train_tensor)  # must be (1. nn output, 2. target)
+
+            optimizer.zero_grad()  # clear gradients for next train
+            loss.backward()  # backpropagation, compute gradients
+            optimizer.step()  # apply gradients
+
+        # calculate in-sample R2
+        y_pred_temp = net4(X_train_tensor)
+        param_dict[index] = 1 - (((Y_train_tensor - y_pred_temp) ** 2).sum() / ((Y_train_tensor - y_pred_temp.mean()) ** 2).sum()).item()
+
+    best_score = max(param_dict.values())
+    best_param_index = list(param_dict.keys())[list(param_dict.values()).index(best_score)]
+    best_param = list(ParameterGrid(param_grid_nn))[best_param_index]
+
+    # refit
+    net4 = Net4(n_feature=n_feature, n_hidden1=32, n_hidden2=16, n_hidden3=8, n_hidden4=4, n_output=1).to(device)  # define the network
+
+    optimizer = torch.optim.SGD(net4.parameters(), lr=best_param['NN_learning_rate'], weight_decay=best_param['NN_alpha'])
+    loss_func = torch.nn.MSELoss()  # this is for regression mean squared loss
+
+    for epoch in range(best_param['NN_max_iter']):
+        prediction = net4(X_train_val_tensor)  # input x and predict based on x
+
+        loss = loss_func(prediction, Y_train_val_tensor)  # must be (1. nn output, 2. target)
+
+        optimizer.zero_grad()  # clear gradients for next train
+        loss.backward()  # backpropagation, compute gradients
+        optimizer.step()  # apply gradients
+
+    NN4_param_dict = best_param
+    model_dict['NN4'] = net4
+
     # Convert the final result to dataframe
     # result = pd.DataFrame.from_dict(Y_pred_dict, orient='index')
     # result['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
@@ -271,16 +376,22 @@ def model_train(this_month, data, train_span, valid_span, test_span, predictor_l
     best_param_df = pd.DataFrame.from_dict(best_param_dict, orient='index').reset_index()
     RF_param_df = pd.DataFrame.from_dict(RF_param_dict, orient='index').reset_index()
     GBRT_param_df = pd.DataFrame.from_dict(GBRT_param_dict, orient='index').reset_index()
+    NN2_param_df = pd.DataFrame.from_dict(NN2_param_dict, orient='index').reset_index()
+    NN4_param_df = pd.DataFrame.from_dict(NN4_param_dict, orient='index').reset_index()
 
     RF_param_df['method'] = 'RF'
     GBRT_param_df['method'] = 'GBRT'
+    NN2_param_df['method'] = 'NN2'
+    NN4_param_df['method'] = 'NN4'
     RF_param_df = RF_param_df.rename(columns={'index': 'param', 0:'value'})
     GBRT_param_df = GBRT_param_df.rename(columns={'index': 'param', 0:'value'})
+    NN2_param_df = NN2_param_df.rename(columns={'index': 'param', 0: 'value'})
+    NN4_param_df = NN4_param_df.rename(columns={'index': 'param', 0: 'value'})
 
     best_param_df = best_param_df.rename(columns={'index': 'method', 0:'value'})
     best_param_df['param'] = np.nan
 
-    best_param_df = pd.concat([best_param_df, RF_param_df, GBRT_param_df])
+    best_param_df = pd.concat([best_param_df, RF_param_df, GBRT_param_df, NN2_param_df, NN4_param_df])
     best_param_df['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
     best_param_df['target'] = target
     best_param_df = best_param_df.reset_index(drop=True)
@@ -371,6 +482,18 @@ def single_run(model_dict, this_month, data, train_span, valid_span, test_span, 
     reg = model_dict['RF']
     Y_pred = reg.predict(X_test)
     Y_pred_df['RF'] = Y_pred
+
+    # 9. Neural Network (2 layers)
+    X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
+    net = model_dict['NN2']
+    Y_pred = net(X_test_tensor)
+    Y_pred_df['NN2'] = pd.DataFrame(Y_pred.detach().numpy())[0]
+
+    # 10. Neural Network (4 layers)
+    X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
+    net = model_dict['NN4']
+    Y_pred = net(X_test_tensor)
+    Y_pred_df['NN4'] = pd.DataFrame(Y_pred.detach().numpy())[0]
 
     # Convert the final result to dataframe
     Y_pred_df[['permno', 'y']] = Y_test[['permno', '%s' % target]].reset_index(drop=True)
