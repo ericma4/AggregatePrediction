@@ -264,17 +264,17 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
         loss_func = torch.nn.MSELoss()  # this is for regression mean squared loss
 
         for epoch in range(params['NN_max_iter']):
-            prediction = net2(X_train_tensor)  # input x and predict based on x
+            prediction = net2(X_train_tensor.to(device))  # input x and predict based on x
 
-            loss = loss_func(prediction, Y_train_tensor)  # must be (1. nn output, 2. target)
+            loss = loss_func(prediction, Y_train_tensor.to(device))  # must be (1. nn output, 2. target)
 
             optimizer.zero_grad()  # clear gradients for next train
             loss.backward()  # backpropagation, compute gradients
             optimizer.step()  # apply gradients
 
         # calculate in-sample R2
-        y_pred_temp = net2(X_train_tensor)
-        param_dict[index] = 1 - (((Y_train_tensor - y_pred_temp) ** 2).sum() / ((Y_train_tensor - y_pred_temp.mean()) ** 2).sum()).item()
+        y_pred_temp = net2(X_train_tensor.to(device))
+        param_dict[index] = 1 - (((Y_train_tensor.to(device) - y_pred_temp) ** 2).sum() / ((Y_train_tensor.to(device) - y_pred_temp.mean()) ** 2).sum()).item()
 
     best_score = max(param_dict.values())
     best_param_index = list(param_dict.keys())[list(param_dict.values()).index(best_score)]
@@ -287,9 +287,9 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     loss_func = torch.nn.MSELoss()  # this is for regression mean squared loss
 
     for epoch in range(best_param['NN_max_iter']):
-        prediction = net2(X_train_val_tensor)  # input x and predict based on x
+        prediction = net2(X_train_val_tensor.to(device))  # input x and predict based on x
 
-        loss = loss_func(prediction, Y_train_val_tensor)  # must be (1. nn output, 2. target)
+        loss = loss_func(prediction, Y_train_val_tensor.to(device))  # must be (1. nn output, 2. target)
 
         optimizer.zero_grad()  # clear gradients for next train
         loss.backward()  # backpropagation, compute gradients
@@ -297,7 +297,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
 
     NN2_param_dict = best_param
     X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
-    Y_pred = net2(X_test_tensor)
+    Y_pred = net2(X_test_tensor.to(device))
     Y_pred_dict['NN2'] = Y_pred.item()
 
     # 10. Neural Network (4 layer)
@@ -317,17 +317,17 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
         loss_func = torch.nn.MSELoss()  # this is for regression mean squared loss
 
         for epoch in range(params['NN_max_iter']):
-            prediction = net4(X_train_tensor)  # input x and predict based on x
+            prediction = net4(X_train_tensor.to(device))  # input x and predict based on x
 
-            loss = loss_func(prediction, Y_train_tensor)  # must be (1. nn output, 2. target)
+            loss = loss_func(prediction, Y_train_tensor.to(device))  # must be (1. nn output, 2. target)
 
             optimizer.zero_grad()  # clear gradients for next train
             loss.backward()  # backpropagation, compute gradients
             optimizer.step()  # apply gradients
 
         # calculate in-sample R2
-        y_pred_temp = net4(X_train_tensor)
-        param_dict[index] = 1 - (((Y_train_tensor - y_pred_temp) ** 2).sum() / ((Y_train_tensor - y_pred_temp.mean()) ** 2).sum()).item()
+        y_pred_temp = net4(X_train_tensor.to(device))
+        param_dict[index] = 1 - (((Y_train_tensor.to(device) - y_pred_temp) ** 2).sum() / ((Y_train_tensor.to(device) - y_pred_temp.mean()) ** 2).sum()).item()
 
     best_score = max(param_dict.values())
     best_param_index = list(param_dict.keys())[list(param_dict.values()).index(best_score)]
@@ -340,9 +340,9 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     loss_func = torch.nn.MSELoss()  # this is for regression mean squared loss
 
     for epoch in range(best_param['NN_max_iter']):
-        prediction = net4(X_train_val_tensor)  # input x and predict based on x
+        prediction = net4(X_train_val_tensor.to(device))  # input x and predict based on x
 
-        loss = loss_func(prediction, Y_train_val_tensor)  # must be (1. nn output, 2. target)
+        loss = loss_func(prediction, Y_train_val_tensor.to(device))  # must be (1. nn output, 2. target)
 
         optimizer.zero_grad()  # clear gradients for next train
         loss.backward()  # backpropagation, compute gradients
@@ -350,7 +350,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
 
     NN4_param_dict = best_param
     X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
-    Y_pred = net4(X_test_tensor)
+    Y_pred = net4(X_test_tensor.to(device))
     Y_pred_dict['NN4'] = Y_pred.item()
 
     # Convert the final result to dataframe
@@ -364,7 +364,7 @@ def single_run(this_month, data, train_span, valid_span, test_span, predictor_li
     else:
         pass
 
-    # Store the best tuning parameters
+    # # Store the best tuning parameters
     best_param_df = pd.DataFrame.from_dict(best_param_dict, orient='index').reset_index()
     RF_param_df = pd.DataFrame.from_dict(RF_param_dict, orient='index').reset_index()
     GBRT_param_df = pd.DataFrame.from_dict(GBRT_param_dict, orient='index').reset_index()
