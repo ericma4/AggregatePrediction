@@ -41,8 +41,8 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     # test_end = this_month + relativedelta(day=31)  # Jan 31
 
     # split train, validation and test set
-    test_start = this_month - relativedelta(months=test_span)
-    test_end = test_start + relativedelta(months=1)
+    test_start = this_month
+    test_end = test_start + relativedelta(months=test_span)
     valid_start = test_start - relativedelta(months=valid_span)
     train_start = valid_start - relativedelta(months=train_span)
     print("\n", 'train_span:', train_start.strftime("%Y-%m-%d"), '-', (valid_start-relativedelta(days=1)).strftime("%Y-%m-%d"),
@@ -69,7 +69,7 @@ def get_data(this_month, data, train_span, valid_span, test_span, predictor_list
     X_train = data_train[predictor_list]
     Y_val = data_valid[['%s' % target]]
     X_val = data_valid[predictor_list]
-    Y_test = data_test[['%s' % target, 'permno']]
+    Y_test = data_test[['%s' % target, 'permno', 'date']]
     X_test = data_test[predictor_list]
     # take the winsorized training and validation sample
     if win is True:
@@ -392,7 +392,7 @@ def model_train(this_month, data, train_span, valid_span, test_span, predictor_l
     best_param_df['param'] = np.nan
 
     best_param_df = pd.concat([best_param_df, RF_param_df, GBRT_param_df, NN2_param_df, NN4_param_df])
-    best_param_df['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
+    best_param_df['date'] = pd.to_datetime(this_month)
     best_param_df['target'] = target
     best_param_df = best_param_df.reset_index(drop=True)
 
@@ -496,9 +496,9 @@ def single_run(model_dict, this_month, data, train_span, valid_span, test_span, 
     Y_pred_df['NN4'] = pd.DataFrame(Y_pred.detach().numpy())[0]
 
     # Convert the final result to dataframe
-    Y_pred_df[['permno', 'y']] = Y_test[['permno', '%s' % target]].reset_index(drop=True)
+    Y_pred_df[['permno', 'y', 'date']] = Y_test[['permno', '%s' % target, 'date']].reset_index(drop=True)
     result = Y_pred_df.copy()
-    result['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
+    # result['date'] = pd.to_datetime(this_month) + relativedelta(day=31)
     result['target'] = target
 
     return result
